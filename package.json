@@ -2,10 +2,10 @@
   "name": "notion-api",
   "version": "1.0.0",
   "description": "Notion API for NUGABOX",
-  "main": "api.js",
+  "main": "app.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "npm install && node api.js"
+    "start": "npm install && node app.js"
   },
   "keywords": [],
   "author": "",
