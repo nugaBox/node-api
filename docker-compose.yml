@@ -1,1 +1,16 @@
- 
+version: '3.8'
+
+services:
+  app:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    container_name: notion-api
+    ports:
+      - "${PORT}:${PORT}"
+    volumes:
+      - .:/usr/src/app
+      - /usr/src/app/node_modules
+    environment:
+      - TZ=Asia/Seoul
+    restart: unless-stopped 
