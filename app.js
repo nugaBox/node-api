@@ -8,13 +8,47 @@ const { apiLogger } = require('./src/logger');
 const app = express();
 const port = process.env.PORT || 3000;
 
+// 프록시 신뢰 설정
+app.set('trust proxy', true);
+
+// CORS 설정
+app.use((req, res, next) => {
+    // 허용할 도메인 설정 (환경변수로 관리 가능)
+    res.header('Access-Control-Allow-Origin', '*');
+    res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+    
+    // OPTIONS 요청 처리
+    if (req.method === 'OPTIONS') {
+        return res.sendStatus(200);
+    }
+    next();
+});
+
+// 보안 헤더 설정
+app.use((req, res, next) => {
+    // HTTPS 강제 리다이렉트 (프록시 환경에서)
+    if (req.secure) {
+        res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+    }
+    
+    // 기타 보안 헤더
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('X-Frame-Options', 'DENY');
+    res.setHeader('X-XSS-Protection', '1; mode=block');
+    next();
+});
+
 // JSON 파싱 미들웨어
 app.use(express.json());
+
+// API 로깅 미들웨어
+app.use(apiLogger);
 
 // Bearer 토큰 인증 미들웨어
 const authenticateToken = (req, res, next) => {
     const authHeader = req.headers['authorization'];
-    const token = authHeader && authHeader.split(' ')[1];  // Bearer {token}
+    const token = authHeader && authHeader.split(' ')[1];
 
     if (!token) {
         return res.status(401).json({ 
@@ -23,7 +57,6 @@ const authenticateToken = (req, res, next) => {
         });
     }
 
-    // 환경변수에 설정된 API 키와 비교
     if (token !== process.env.API_KEY) {
         return res.status(403).json({ 
             success: false, 
@@ -33,9 +66,6 @@ const authenticateToken = (req, res, next) => {
 
     next();
 };
-
-// API 로깅 미들웨어 적용
-app.use(apiLogger);
 
 // 모든 API 라우트에 인증 미들웨어 적용
 app.use('/notion', authenticateToken, notionRouter);
