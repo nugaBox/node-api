@@ -1,30 +1,9 @@
-const { notion } = require('./utils');
+const { notionClient, formatPropertyValue } = require('./notion');
+const { formatResponse } = require('./utils');
 const logger = require('./logger');
-
-// 속성 값 형식 변환 함수
-function formatPropertyValue(propertyName, value) {
-    let convertedValue = value;
-    
-    if (typeof value === 'string') {
-        if (!isNaN(value)) {
-            convertedValue = Number(value);
-        } 
-        else if (value.toLowerCase() === 'true' || value.toLowerCase() === 'false') {
-            convertedValue = value.toLowerCase() === 'true';
-        }
-    }
-    
-    switch (typeof convertedValue) {
-        case 'string':
-            return { rich_text: [{ text: { content: convertedValue } }] };
-        case 'number':
-            return { number: convertedValue };
-        case 'boolean':
-            return { checkbox: convertedValue };
-        default:
-            return convertedValue;
-    }
-}
+const express = require('express');
+const router = express.Router();
+require('dotenv').config();
 
 // 한글 금액을 숫자로 변환하는 함수
 function koreanAmountToNumber(koreanAmount) {
@@ -50,7 +29,7 @@ function koreanAmountToNumber(koreanAmount) {
 // 실적 충족 여부 확인 함수
 async function checkExpenseStatus(cardAlias, pageId) {
     try {
-        const page = await notion.pages.retrieve({ page_id: pageId });
+        const page = await notionClient.pages.retrieve({ page_id: pageId });
         
         const lastMonthText = page.properties['전월실적']?.rich_text?.[0]?.text?.content || '0';
         const lastMonthAmount = koreanAmountToNumber(lastMonthText);
@@ -69,138 +48,148 @@ async function checkExpenseStatus(cardAlias, pageId) {
     }
 }
 
+// 카드별 페이지 ID 가져오기 함수
+function getPageIdByCard(cardId) {
+    const envKey = `CARD_${cardId.toUpperCase()}`;
+    const pageId = process.env[envKey];
+    if (!pageId) {
+        throw new Error(`${cardId} 카드에 대한 페이지 ID가 설정되지 않았습니다.`);
+    }
+    return pageId;
+}
+
 // API 라우트 핸들러들
-const cardRoutes = {
-    // 금월지출 조회 API
+const financialRoutes = {
+    // 카드 금월지출 조회 API
     getExpense: async (req, res) => {
         try {
-            const { cardAlias } = req.params;
-            const pageId = getPageIdByCard(cardAlias);
-            
-            const page = await notion.pages.retrieve({ page_id: pageId });
+            const { cardId, format = 'json' } = req.body;
+            if (!cardId) {
+                throw new Error('cardId가 필요합니다.');
+            }
+
+            const pageId = getPageIdByCard(cardId);
+            const page = await notionClient.pages.retrieve({ page_id: pageId });
             const expense = page.properties['금월지출']?.number || 0;
             
-            if (req.query.format === 'text') {
-                res.type('text').send(expense.toString());
-            } else {
-                res.json({ success: true, expense: expense });
-            }
+            formatResponse(res, { success: true, expense }, format);
         } catch (error) {
             logger.error('금월지출 조회 중 오류 발생: ' + error.message);
-            if (req.query.format === 'text') {
-                res.type('text').status(500).send(error.message);
-            } else {
-                res.status(500).json({ success: false, error: error.message });
-            }
+            formatResponse(res, { success: false, error: error.message }, req.body.format);
         }
     },
 
-    // 금월지출 업데이트 API
+    // 카드 금월지출 업데이트 API
     updateExpense: async (req, res) => {
         try {
-            const { cardAlias } = req.params;
-            const { value } = req.query;
-            
+            const { cardId, value, format = 'json' } = req.body;
+            if (!cardId) {
+                throw new Error('cardId가 필요합니다.');
+            }
             if (!value) {
                 throw new Error('업데이트할 값이 필요합니다.');
             }
 
-            const pageId = getPageIdByCard(cardAlias);
+            const pageId = getPageIdByCard(cardId);
             const formattedValue = formatPropertyValue('금월지출', value);
             
-            await notion.pages.update({
+            await notionClient.pages.update({
                 page_id: pageId,
                 properties: {
                     '금월지출': formattedValue
                 }
             });
             
-            if (req.query.format === 'text') {
-                res.type('text').send('성공');
-            } else {
-                res.json({ success: true });
-            }
+            formatResponse(res, { success: true }, format);
         } catch (error) {
             logger.error('금월지출 업데이트 중 오류 발생: ' + error.message);
-            if (req.query.format === 'text') {
-                res.type('text').status(500).send('실패: ' + error.message);
-            } else {
-                res.status(500).json({ success: false, error: error.message });
-            }
+            formatResponse(res, { success: false, error: error.message }, req.body.format);
         }
     },
 
-    // 실적 상태 확인 API
-    getStatus: async (req, res) => {
+    // 카드 전월실적 조회 API
+    getLastPerformance: async (req, res) => {
         try {
-            const { cardAlias } = req.params;
-            const pageId = getPageIdByCard(cardAlias);
-            const status = await checkExpenseStatus(cardAlias, pageId);
-            
-            if (req.query.format === 'text') {
-                if (req.query.detail === 'true') {
-                    const remainingText = status.remaining > 0 
-                        ? `남은 금액: ${status.remaining.toLocaleString()}원`
-                        : `초과 금액: ${Math.abs(status.remaining).toLocaleString()}원`;
-                    
-                    res.type('text').send(
-                        `상태: ${status.status}\n` +
-                        `전월실적: ${status.lastMonth.toLocaleString()}원\n` +
-                        `금월지출: ${status.currentExpense.toLocaleString()}원\n` +
-                        remainingText
-                    );
-                } else {
-                    res.type('text').send(status.status);
-                }
-            } else {
-                res.json({ success: true, status: status });
+            const { cardId, format = 'json' } = req.body;
+            if (!cardId) {
+                throw new Error('cardId가 필요합니다.');
             }
+
+            const pageId = getPageIdByCard(cardId);
+            const page = await notionClient.pages.retrieve({ page_id: pageId });
+            
+            // 전월실적 속성 가져오기
+            const formattedLastPerformance = page.properties['전월실적']?.rich_text?.[0]?.text?.content || '0';
+            const numericLastPerformance = koreanAmountToNumber(formattedLastPerformance);
+            
+            formatResponse(res, {
+                success: true,
+                formattedLastPerformance,
+                lastPerformance: numericLastPerformance
+            }, format);
+        } catch (error) {
+            logger.error('실적 조회 중 오류 발생: ' + error.message);
+            formatResponse(res, { success: false, error: error.message }, req.body.format);
+        }
+    },
+
+    // 카드 전월실적 충족 확인 API
+    checkLastPerformance: async (req, res) => {
+        try {
+            const { cardId, format = 'json' } = req.body;
+            if (!cardId) {
+                throw new Error('cardId가 필요합니다.');
+            }
+
+            const pageId = getPageIdByCard(cardId);
+            const status = await checkExpenseStatus(cardId, pageId);
+            
+            formatResponse(res, {
+                success: true,
+                status: status.status,  // '충족' 또는 '부족'
+                isAchieved: status.isAchieved,
+                lastMonth: status.lastMonth,
+                currentExpense: status.currentExpense,
+                remaining: status.remaining
+            }, format);
         } catch (error) {
             logger.error('상태 확인 중 오류 발생: ' + error.message);
-            if (req.query.format === 'text') {
-                res.type('text').status(500).send(error.message);
-            } else {
-                res.status(500).json({ success: false, error: error.message });
-            }
+            formatResponse(res, { success: false, error: error.message }, req.body.format);
         }
     },
 
-    // 남은 금액 조회 API
-    getRemaining: async (req, res) => {
+    // 카드 전월실적 남은 금액 조회 API
+    getMonthRemaining: async (req, res) => {
         try {
-            const { cardAlias } = req.params;
-            const pageId = getPageIdByCard(cardAlias);
-            const status = await checkExpenseStatus(cardAlias, pageId);
+            const { cardId, format = 'json' } = req.body;
+            if (!cardId) {
+                throw new Error('cardId가 필요합니다.');
+            }
+
+            const pageId = getPageIdByCard(cardId);
+            const status = await checkExpenseStatus(cardId, pageId);
             
             const remainingAmount = Math.max(0, status.remaining);
             
-            if (req.query.format === 'text') {
-                const formattedAmount = remainingAmount > 0 
-                    ? `${remainingAmount.toLocaleString()}원`
-                    : '0원';
-                
-                res.type('text').send(formattedAmount);
-            } else {
-                res.json({
-                    success: true,
-                    remaining: remainingAmount,
-                    formattedRemaining: remainingAmount.toLocaleString() + '원'
-                });
-            }
+            formatResponse(res, {
+                success: true,
+                remaining: remainingAmount,
+                formattedRemaining: remainingAmount.toLocaleString() + '원'
+            }, format);
         } catch (error) {
             logger.error('남은 금액 조회 중 오류 발생: ' + error.message);
-            if (req.query.format === 'text') {
-                res.type('text').status(500).send(error.message);
-            } else {
-                res.status(500).json({ success: false, error: error.message });
-            }
+            formatResponse(res, { success: false, error: error.message }, req.body.format);
         }
-    }
+    },
 };
 
+// 라우트 설정
+router.post('/get-expense', financialRoutes.getExpense);
+router.post('/update-expense', financialRoutes.updateExpense);
+router.post('/get-last-performance', financialRoutes.getLastPerformance);
+router.post('/check-last-performance', financialRoutes.checkLastPerformance);
+router.post('/get-month-remaining', financialRoutes.getMonthRemaining);
+
 module.exports = {
-    formatPropertyValue,
-    koreanAmountToNumber,
-    checkExpenseStatus,
-    cardRoutes
+    router
 }; 

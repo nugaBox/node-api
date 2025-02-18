@@ -1,8 +1,9 @@
 require('dotenv').config();
 const express = require('express');
 const logger = require('./src/logger');
-const { notion, getPageProperty, updatePageProperty, extractPageId, getPageIdByCard } = require('./src/utils');
-const { cardRoutes } = require('./src/financial');
+const { router: notionRouter } = require('./src/notion');
+const { router: financialRouter } = require('./src/financial');
+const { apiLogger } = require('./src/logger');
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -10,62 +11,35 @@ const port = process.env.PORT || 3000;
 // JSON 파싱 미들웨어
 app.use(express.json());
 
-// Notion 유틸리티 API 라우트
-app.get('/notion/:pageId/:propertyId', async (req, res) => {
-    try {
-        const { pageId, propertyId } = req.params;
-        const response = await getPageProperty(pageId, propertyId);
-        res.json(response);
-    } catch (error) {
-        logger.error('속성 조회 중 오류 발생: ' + error.message);
-        res.status(500).json({ success: false, error: error.message });
-    }
-});
+// Bearer 토큰 인증 미들웨어
+const authenticateToken = (req, res, next) => {
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1];  // Bearer {token}
 
-app.post('/notion/:pageId', async (req, res) => {
-    try {
-        const { pageId } = req.params;
-        const { propertyName, propertyValue } = req.body;
-        
-        if (!propertyName || propertyValue === undefined) {
-            throw new Error('propertyName과 propertyValue가 필요합니다.');
-        }
-
-        await updatePageProperty(pageId, propertyName, propertyValue);
-        res.json({ 
-            success: true, 
-            message: "속성이 업데이트되었습니다" 
+    if (!token) {
+        return res.status(401).json({ 
+            success: false, 
+            error: '인증 토큰이 필요합니다.' 
         });
-    } catch (error) {
-        logger.error('속성 업데이트 중 오류 발생: ' + error.message);
-        res.status(500).json({ success: false, error: error.message });
     }
-});
 
-app.get('/notion/extract-page-id', (req, res) => {
-    try {
-        const { url } = req.query;
-        
-        if (!url) {
-            throw new Error('URL 파라미터가 필요합니다.');
-        }
-
-        const pageId = extractPageId(url);
-        res.json({ 
-            success: true, 
-            pageId: pageId 
+    // 환경변수에 설정된 API 키와 비교
+    if (token !== process.env.API_KEY) {
+        return res.status(403).json({ 
+            success: false, 
+            error: '유효하지 않은 토큰입니다.' 
         });
-    } catch (error) {
-        logger.error('페이지 ID 추출 중 오류 발생: ' + error.message);
-        res.status(500).json({ success: false, error: error.message });
     }
-});
 
-// 카드 관리 API 라우트
-app.get('/card/:cardAlias/expense', cardRoutes.getExpense);
-app.get('/card/:cardAlias/expense/update', cardRoutes.updateExpense);
-app.get('/card/:cardAlias/status', cardRoutes.getStatus);
-app.get('/card/:cardAlias/remaining', cardRoutes.getRemaining);
+    next();
+};
+
+// API 로깅 미들웨어 적용
+app.use(apiLogger);
+
+// 모든 API 라우트에 인증 미들웨어 적용
+app.use('/notion', authenticateToken, notionRouter);
+app.use('/financial', authenticateToken, financialRouter);
 
 // 기본 에러 핸들러
 app.use((err, req, res, next) => {
