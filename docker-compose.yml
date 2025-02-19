@@ -1,7 +1,7 @@
 version: '3.8'
 
 services:
-  api:
+  app:
     build: 
       context: ./app
       dockerfile: Dockerfile
@@ -9,20 +9,12 @@ services:
     ports:
       - "3000:3000"
     volumes:
-      - ./app:/usr/src/app:rw
+      - ./app:/usr/src/app
       - /usr/src/app/node_modules
     environment:
       - NODE_ENV=production
     env_file:
       - app/.env
     restart: unless-stopped 
-    networks:
-      - api-network
     mem_limit: 1g
-    user: node
-    dns:
-      - 8.8.8.8
 
-networks:
-  api-network:
-    driver: bridge

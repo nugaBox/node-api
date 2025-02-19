@@ -1,12 +1,9 @@
-FROM node:23.6
-
-RUN ping -c 4 8.8.8.8
+FROM node:23.6-alpine
 
 WORKDIR /usr/src/app
 
 # 패키지 파일 복사 및 의존성 설치
 COPY package.json package-lock.json ./
-RUN ls -al /usr/src/app
 RUN npm install
 
 # 소스 코드 복사
