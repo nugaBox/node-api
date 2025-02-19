@@ -12,7 +12,17 @@ services:
       - ./app:/usr/src/app:rw
       - /usr/src/app/node_modules
     environment:
-      - NODE_ENV=development
+      - NODE_ENV=production
     env_file:
       - app/.env
     restart: unless-stopped 
+    networks:
+      - api-network
+    mem_limit: 1g
+    user: node
+    dns:
+      - 8.8.8.8
+
+networks:
+  api-network:
+    driver: bridge
