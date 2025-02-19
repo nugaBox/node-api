@@ -1,11 +1,11 @@
 {
-  "name": "notion-api",
+  "name": "node-api",
   "version": "1.0.0",
-  "description": "Notion API for NUGABOX",
+  "description": "Node.js based REST API service",
   "main": "app.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "npm install && node app.js"
+    "start": "npm install && node app.js",
+    "dev": "nodemon app.js"
   },
   "keywords": [],
   "author": "",
@@ -14,5 +14,8 @@
     "@notionhq/client": "^2.2.14",
     "dotenv": "^16.4.1",
     "express": "^4.18.2"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.3"
   }
 }
