@@ -2,9 +2,6 @@ FROM node:23.6-alpine
 
 WORKDIR /usr/src/app
 
-# 기본 패키지 설치 (npm 빌드용)
-RUN apk add --no-cache python3 make g++
-
 # 패키지 파일 복사 및 의존성 설치
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev  # npm install 대신 더 안정적인 방법
