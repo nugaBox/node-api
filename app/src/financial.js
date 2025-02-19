@@ -81,6 +81,32 @@ function formatCardStatus(cardName, currentExpense, lastMonthText, status, remai
     return statusText;
 }
 
+// 등록된 모든 카드 ID 가져오기 함수
+function getAllCardIds() {
+    const cardIds = [];
+    Object.keys(process.env).forEach(key => {
+        if (key.startsWith('CARD_') && !key.endsWith('_NAME')) {
+            // CARD_SHINHAN 형태의 키에서 SHINHAN 부분만 추출
+            const cardId = key.replace('CARD_', '').toLowerCase();
+            cardIds.push(cardId);
+        }
+    });
+    return cardIds;
+}
+
+// 카드 현황 문자열 생성 함수 (이모지 추가)
+function formatCardStatusWithEmoji(cardName, currentExpense, lastMonthText, status, remaining) {
+    let statusText = `💳 ${cardName} : ${currentExpense.toLocaleString()}원 / ${lastMonthText}`;
+    
+    if (status === '부족') {
+        statusText += ` (${status}, ${remaining.toLocaleString()}원 남음)`;
+    } else {
+        statusText += ` (${status})`;
+    }
+    
+    return statusText;
+}
+
 // API 라우트 핸들러들
 const financialRoutes = {
     // 카드 금월지출 조회 API
@@ -248,6 +274,62 @@ const financialRoutes = {
             logger.error('카드 현황 조회 중 오류 발생: ' + error.message);
             formatResponse(res, { success: false, error: error.message }, req.body.format);
         }
+    },
+
+    // 전체 카드 월별 현황 조회 API
+    getAllCardStatus: async (req, res) => {
+        try {
+            const { format = 'json' } = req.body;
+            const cardIds = getAllCardIds();
+            
+            let totalExpense = 0;
+            const cardStatuses = [];
+            
+            // 각 카드별 현황 조회
+            for (const cardId of cardIds) {
+                const pageId = getPageIdByCard(cardId);
+                const cardName = getCardName(cardId);
+                const page = await notionClient.pages.retrieve({ page_id: pageId });
+                
+                const lastMonthText = page.properties['전월실적']?.rich_text?.[0]?.text?.content || '0';
+                const currentExpense = page.properties['금월지출']?.number || 0;
+                const lastMonthAmount = koreanAmountToNumber(lastMonthText);
+                
+                const status = currentExpense >= lastMonthAmount ? '충족' : '부족';
+                const remaining = Math.max(0, lastMonthAmount - currentExpense);
+                
+                totalExpense += currentExpense;
+                
+                const statusText = formatCardStatusWithEmoji(cardName, currentExpense, lastMonthText, status, remaining);
+                cardStatuses.push({
+                    cardId,
+                    cardName,
+                    currentExpense,
+                    lastMonthText,
+                    lastMonthAmount,
+                    status,
+                    remaining,
+                    statusText
+                });
+            }
+            
+            if (format === 'plain') {
+                let plainText = cardStatuses.map(status => status.statusText).join('\n');
+                plainText += '\n-------------';  // 구분선 추가
+                plainText += `\n✳️ 합계 : ${totalExpense.toLocaleString()}원`;  // 이모지 변경
+                formatResponse(res, { statusText: plainText }, format);
+            } else {
+                formatResponse(res, {
+                    success: true,
+                    cardStatuses,
+                    totalExpense,
+                    formattedTotalExpense: totalExpense.toLocaleString() + '원'
+                }, format);
+            }
+        } catch (error) {
+            logger.error('전체 카드 현황 조회 중 오류 발생: ' + error.message);
+            formatResponse(res, { success: false, error: error.message }, req.body.format);
+        }
     }
 };
 
@@ -258,6 +340,7 @@ router.post('/get-last-performance', financialRoutes.getLastPerformance);
 router.post('/check-last-performance', financialRoutes.checkLastPerformance);
 router.post('/get-month-remaining', financialRoutes.getMonthRemaining);
 router.post('/get-card-status', financialRoutes.getCardStatus);
+router.post('/get-all-card-status', financialRoutes.getAllCardStatus);
 
 module.exports = {
     router
