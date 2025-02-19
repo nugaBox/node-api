@@ -2,9 +2,12 @@ FROM node:23.6-alpine
 
 WORKDIR /usr/src/app
 
+# 기본 패키지 설치 (python3, make, g++)
+RUN apk add --no-cache python3 make g++
+
 # 패키지 파일 복사 및 의존성 설치
 COPY package.json package-lock.json ./
-RUN npm install
+RUN npm install --legacy-peer-deps
 
 # 소스 코드 복사
 COPY . .
