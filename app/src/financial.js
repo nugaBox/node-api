@@ -58,6 +58,29 @@ function getPageIdByCard(cardId) {
     return pageId;
 }
 
+// 카드 이름 가져오기 함수
+function getCardName(cardId) {
+    const envKey = `CARD_${cardId.toUpperCase()}_NAME`;
+    const cardName = process.env[envKey];
+    if (!cardName) {
+        throw new Error(`${cardId} 카드에 대한 이름이 설정되지 않았습니다.`);
+    }
+    return cardName;
+}
+
+// 카드 현황 문자열 생성 함수
+function formatCardStatus(cardName, currentExpense, lastMonthText, status, remaining) {
+    let statusText = `${cardName} : ${currentExpense.toLocaleString()}원 / ${lastMonthText}`;
+    
+    if (status === '부족') {
+        statusText += ` (${status}, ${remaining.toLocaleString()}원 남음)`;
+    } else {
+        statusText += ` (${status})`;
+    }
+    
+    return statusText;
+}
+
 // API 라우트 핸들러들
 const financialRoutes = {
     // 카드 금월지출 조회 API
@@ -181,6 +204,51 @@ const financialRoutes = {
             formatResponse(res, { success: false, error: error.message }, req.body.format);
         }
     },
+
+    // 카드 월별 현황 조회 API
+    getCardStatus: async (req, res) => {
+        try {
+            const { cardId, format = 'json' } = req.body;
+            if (!cardId) {
+                throw new Error('cardId가 필요합니다.');
+            }
+
+            // 카드 정보 조회
+            const pageId = getPageIdByCard(cardId);
+            const cardName = getCardName(cardId);
+            const page = await notionClient.pages.retrieve({ page_id: pageId });
+            
+            // 전월실적 및 금월지출 정보 가져오기
+            const lastMonthText = page.properties['전월실적']?.rich_text?.[0]?.text?.content || '0';
+            const currentExpense = page.properties['금월지출']?.number || 0;
+            const lastMonthAmount = koreanAmountToNumber(lastMonthText);
+            
+            // 상태 확인
+            const status = currentExpense >= lastMonthAmount ? '충족' : '부족';
+            const remaining = Math.max(0, lastMonthAmount - currentExpense);
+            
+            // 응답 데이터 생성
+            const statusText = formatCardStatus(cardName, currentExpense, lastMonthText, status, remaining);
+            
+            if (format === 'plain') {
+                formatResponse(res, { statusText }, format);
+            } else {
+                formatResponse(res, {
+                    success: true,
+                    cardName,
+                    currentExpense,
+                    lastMonthText,
+                    lastMonthAmount,
+                    status,
+                    remaining,
+                    statusText
+                }, format);
+            }
+        } catch (error) {
+            logger.error('카드 현황 조회 중 오류 발생: ' + error.message);
+            formatResponse(res, { success: false, error: error.message }, req.body.format);
+        }
+    }
 };
 
 // 라우트 설정
@@ -189,6 +257,7 @@ router.post('/update-expense', financialRoutes.updateExpense);
 router.post('/get-last-performance', financialRoutes.getLastPerformance);
 router.post('/check-last-performance', financialRoutes.checkLastPerformance);
 router.post('/get-month-remaining', financialRoutes.getMonthRemaining);
+router.post('/get-card-status', financialRoutes.getCardStatus);
 
 module.exports = {
     router

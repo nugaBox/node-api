@@ -4,7 +4,9 @@ function formatResponse(res, data, format = 'json') {
         // 데이터 타입에 따른 텍스트 변환
         let plainText = '';
         if (typeof data === 'object') {
-            if (data.type) {
+            if (data.statusText) {  // 카드 현황 텍스트 처리 추가
+                plainText = data.statusText;
+            } else if (data.type) {
                 // Notion API 응답 처리
                 switch (data.type) {
                     case 'number':
