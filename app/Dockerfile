@@ -3,7 +3,7 @@ FROM node:23.6-alpine
 WORKDIR /usr/src/app
 
 # 패키지 파일 복사 및 의존성 설치
-COPY package*.json ./
+COPY package.json package-lock.json ./
 RUN npm install
 
 # 소스 코드 복사
