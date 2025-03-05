@@ -107,6 +107,35 @@ function formatCardStatusWithEmoji(cardName, currentExpense, lastMonthText, stat
     return statusText;
 }
 
+// 연월 문자열을 Notion 관계형 페이지 ID로 변환하는 함수
+async function getMonthRelationId(yearMonth) {
+    try {
+        // yearMonth 형식: "2025_03"
+        const [year, month] = yearMonth.split('_');
+        const monthTitle = `${year}년 ${parseInt(month)}월`;
+        
+        // 월별 가계부 데이터베이스에서 해당 월 페이지 검색
+        const response = await notionClient.databases.query({
+            database_id: process.env.MONTHLY_EXPENSE_DB_ID,
+            filter: {
+                property: "연월구분",
+                title: {
+                    equals: monthTitle
+                }
+            }
+        });
+
+        if (response.results.length === 0) {
+            throw new Error(`${monthTitle} 페이지를 찾을 수 없습니다.`);
+        }
+
+        return response.results[0].id;
+    } catch (error) {
+        logger.error('월별 relation ID 조회 중 오류: ' + error.message);
+        throw error;
+    }
+}
+
 // API 라우트 핸들러들
 const financialRoutes = {
     // 카드 금월지출 조회 API
@@ -330,6 +359,117 @@ const financialRoutes = {
             logger.error('전체 카드 현황 조회 중 오류 발생: ' + error.message);
             formatResponse(res, { success: false, error: error.message }, req.body.format);
         }
+    },
+
+    // 카드 사용내역 추가 API
+    addExpense: async (req, res) => {
+        try {
+            const { 
+                지출명, 
+                카테고리명, 
+                금액, 
+                누구, 
+                연월, 
+                카드, 
+                비고,
+                format = 'json' 
+            } = req.body;
+
+            // 필수 값 체크
+            if (!지출명 || !카테고리명 || !금액 || !누구 || !연월 || !카드) {
+                throw new Error('필수 입력값이 누락되었습니다.');
+            }
+
+            // 관계형 항목 ID 조회
+            const monthRelationId = await getMonthRelationId(연월);
+            const cardRelationId = getPageIdByCard(카드);
+
+            // 새 페이지 생성
+            const response = await notionClient.pages.create({
+                parent: {
+                    database_id: process.env.EXPENSE_DB_ID
+                },
+                properties: {
+                    "상세내역": {
+                        title: [{ text: { content: 지출명 } }]
+                    },
+                    "구분": {
+                        select: { name: "지출" }
+                    },
+                    "지출항목": {
+                        select: { name: 카테고리명 }
+                    },
+                    "금액": {
+                        number: parseInt(금액)
+                    },
+                    "누구": {
+                        select: { name: 누구 }
+                    },
+                    "월별 통계 지출 relation": {
+                        relation: [{ id: monthRelationId }]
+                    },
+                    "결제 수단": {
+                        relation: [{ id: cardRelationId }]
+                    },
+                    "비고": 비고 ? {
+                        rich_text: [{ text: { content: 비고 } }]
+                    } : undefined
+                }
+            });
+
+            formatResponse(res, {
+                success: true,
+                message: '사용내역이 추가되었습니다.',
+                pageId: response.id
+            }, format);
+        } catch (error) {
+            logger.error('사용내역 추가 중 오류 발생: ' + error.message);
+            formatResponse(res, { success: false, error: error.message }, req.body.format);
+        }
+    },
+
+    // 월별 페이지 존재 여부 확인 API
+    checkMonthPage: async (req, res) => {
+        try {
+            const { yearmonth, format = 'json' } = req.body;
+            
+            if (!yearmonth) {
+                throw new Error('yearmonth가 필요합니다.');
+            }
+
+            // yearmonth 형식 검증 (YYYY_MM)
+            if (!/^\d{4}_\d{2}$/.test(yearmonth)) {
+                throw new Error('yearmonth 형식이 올바르지 않습니다. (예: 2024_03)');
+            }
+
+            const [year, month] = yearmonth.split('_');
+            const monthTitle = `${year}년 ${parseInt(month)}월`;
+
+            // 월별 가계부 데이터베이스에서 해당 월 페이지 검색
+            const response = await notionClient.databases.query({
+                database_id: process.env.MONTHLY_EXPENSE_DB_ID,
+                filter: {
+                    property: "연월구분",
+                    title: {
+                        equals: monthTitle
+                    }
+                }
+            });
+
+            if (response.results.length === 0) {
+                formatResponse(res, {
+                    success: false,
+                    message: `해당 월이 없습니다. Notion에서 [한 달 생성]을 실행하세요`
+                }, format);
+            } else {
+                formatResponse(res, {
+                    success: true
+                }, format);
+            }
+        } catch (error) {
+            logger.error('월별 페이지 확인 중 오류 발생: ' + error.message);
+            formatResponse(res, { success: false, error: error.message }, req.body.format);
+        }
     }
 };
 
@@ -341,6 +481,8 @@ router.post('/check-last-performance', financialRoutes.checkLastPerformance);
 router.post('/get-month-remaining', financialRoutes.getMonthRemaining);
 router.post('/get-card-status', financialRoutes.getCardStatus);
 router.post('/get-all-card-status', financialRoutes.getAllCardStatus);
+router.post('/add-expense', financialRoutes.addExpense);
+router.post('/check-month-page', financialRoutes.checkMonthPage);
 
 module.exports = {
     router
