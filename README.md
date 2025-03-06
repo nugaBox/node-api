@@ -136,6 +136,44 @@ node app/app.js
 
 ## 배포
 
+### SSH 키 설정
+
+1. **로컬에서 SSH 키 생성**:
+
+```bash
+# 프로젝트 루트 디렉토리에서
+mkdir -p .ssh
+cd .ssh
+
+# ED25519 키 생성
+ssh-keygen -t ed25519 -f deploy_key -C "deploy@node-api"
+# 비밀번호는 입력하지 않음 (엔터)
+
+# 권한 설정
+chmod 600 deploy_key       # 비공개 키
+chmod 644 deploy_key.pub   # 공개 키
+
+# authorized_keys 파일 생성
+cp deploy_key.pub authorized_keys
+```
+
+2. **GitHub Secrets 설정**:
+
+- GitHub 저장소의 Settings > Secrets and variables > Actions로 이동
+- 'New repository secret' 클릭
+- Name: `DEPLOY_SSH_KEY`
+- Value: `.ssh/deploy_key` 파일의 내용 전체 복사하여 붙여넣기
+
+3. **SSH 연결 테스트**:
+
+```bash
+# 로컬에서 컨테이너로 SSH 연결 테스트
+ssh -i .ssh/deploy_key -p 2222 root@localhost
+
+# 원격 서버의 컨테이너로 연결 테스트
+ssh -i .ssh/deploy_key -p 2222 root@your-domain.com
+```
+
 ### Docker Compose 실행
 
 ```bash
@@ -143,7 +181,7 @@ node app/app.js
 docker-compose up -d
 ```
 
-#### docker-compose.yml 예제
+#### docker-compose.yml
 
 ```yaml
 version: "3.8"
@@ -154,35 +192,77 @@ services:
     restart: unless-stopped
     ports:
       - "3000:3000"
+      - "2222:2222" # SSH 포트
     volumes:
-      - ./app:/usr/src/app
-      - /usr/src/app/node_modules
+      - ./app:/usr/src/node-api/app
+      - /usr/src/node-api/app/node_modules
+      - ./.ssh/authorized_keys:/root/.ssh/authorized_keys:ro # SSH 키 마운트
     environment:
       - NODE_ENV=production
-    command: sh -c "npm install && node app.js"
+      - TZ=Asia/Seoul
+    env_file:
+      - app/.env
+    mem_limit: 1g
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 ```
 
-#### Dockerfile 예제
+#### Dockerfile
 
 ```dockerfile
-FROM node:18-alpine
+FROM node:23.6-alpine
 
-WORKDIR /usr/src/app
+# SSH 서버 및 Git 설치
+RUN apk add --no-cache openssh git \
+    && ssh-keygen -A
 
-COPY app/package*.json ./
+# SSH 설정
+RUN sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config \
+    && sed -i 's/#Port 22/Port 2222/' /etc/ssh/sshd_config \
+    && sed -i 's/#PubkeyAuthentication yes/PubkeyAuthentication yes/' /etc/ssh/sshd_config \
+    && sed -i 's/#PasswordAuthentication yes/PasswordAuthentication no/' /etc/ssh/sshd_config \
+    && sed -i 's/#StrictModes yes/StrictModes no/' /etc/ssh/sshd_config
 
+WORKDIR /usr/src/node-api
+
+# SSH 디렉토리 생성
+RUN mkdir -p /root/.ssh && \
+    chmod 700 /root/.ssh && \
+    git config --global core.fileMode false
+
+# PM2 전역 설치
+RUN npm install -g pm2
+
+# 프로젝트 파일 복사
+COPY . .
+
+# Git 저장소 초기화
+RUN git init && \
+    git remote add origin https://github.com/nugaBox/node-api.git
+
+WORKDIR /usr/src/node-api/app
 RUN npm install
 
-COPY app .
+EXPOSE 2222 3000
 
-EXPOSE 3000
-
-CMD ["sh", "-c", "npm install && node app.js"]
+CMD chmod 600 /root/.ssh/authorized_keys && /usr/sbin/sshd -D & cd /usr/src/node-api/app && npm install && pm2-runtime start app.js --name node-api
 ```
 
-이 설정의 주요 특징:
+### GitHub Actions 배포
 
-- 컨테이너 시작 시 항상 `npm install` 실행
-- 볼륨 마운트로 로컬 소스 코드 변경 실시간 반영
-- `node_modules`는 컨테이너 내부에서 관리
-- 환경 변수와 포트 설정 가능
+GitHub Actions를 통한 자동 배포가 설정되어 있습니다. `main` 브랜치에 push하면 자동으로 배포가 시작됩니다.
+
+배포 프로세스:
+
+1. SSH 키를 사용하여 컨테이너에 접속
+2. Git 저장소에서 최신 코드를 가져옴
+3. 의존성 설치 및 PM2로 앱 재시작
+
+주의사항:
+
+- SSH 키 파일의 권한 설정이 올바른지 확인 (600)
+- GitHub Secrets에 SSH 키가 올바르게 등록되었는지 확인
+- 컨테이너의 SSH 포트(2222)가 외부에서 접근 가능한지 확인
