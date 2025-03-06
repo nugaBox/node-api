@@ -11,7 +11,7 @@ services:
     volumes:
       - ./app:/usr/src/app
       - /usr/src/app/node_modules
-      - ./.ssh:/root/.ssh:rw
+      - ./.ssh/authorized_keys:/root/.ssh/authorized_keys:ro
     environment:
       - NODE_ENV=production
       - TZ=Asia/Seoul
