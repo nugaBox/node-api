@@ -5,15 +5,16 @@ RUN apk add --no-cache openssh git \
     && ssh-keygen -A
 
 # SSH 설정
-RUN sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin prohibit-password/' /etc/ssh/sshd_config \
+RUN sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config \
     && sed -i 's/#Port 22/Port 2222/' /etc/ssh/sshd_config \
     && sed -i 's/#PubkeyAuthentication yes/PubkeyAuthentication yes/' /etc/ssh/sshd_config \
-    && sed -i 's/#PasswordAuthentication yes/PasswordAuthentication no/' /etc/ssh/sshd_config
+    && sed -i 's/#PasswordAuthentication yes/PasswordAuthentication no/' /etc/ssh/sshd_config \
+    && sed -i 's/#StrictModes yes/StrictModes no/' /etc/ssh/sshd_config
 
 # 작업 디렉토리 설정
 WORKDIR /usr/src/app
 
-# SSH 키 디렉토리 생성 및 Git 설정
+# SSH 디렉토리 생성 및 Git 설정
 RUN mkdir -p /root/.ssh && \
     chmod 700 /root/.ssh && \
     git config --global core.fileMode false
@@ -32,4 +33,4 @@ COPY app .
 EXPOSE 2222 3000
 
 # SSH 서버 시작 후 앱 실행 (PM2 사용)
-CMD /usr/sbin/sshd && cd /usr/src/app && npm install && pm2-runtime start app.js --name node-api 
+CMD /usr/sbin/sshd -D & cd /usr/src/app && npm install && pm2-runtime start app.js --name node-api 
