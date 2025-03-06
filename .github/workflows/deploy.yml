@@ -24,6 +24,7 @@ jobs:
           ssh -v -o StrictHostKeyChecking=no -p 2222 root@cloud.nugabox.com "echo 'Test connection'"
 
       - name: Deploy to Container
+        id: deploy
         run: |
           ssh -o StrictHostKeyChecking=no -p 2222 root@cloud.nugabox.com "\
             cd /usr/src/node-api && \
@@ -35,10 +36,47 @@ jobs:
             pm2 reload all --update-env || pm2 start app.js --name node-api"
 
       - name: Verify Deployment
+        id: verify
         if: success()
         run: |
-          ssh -p 2222 root@cloud.nugabox.com "\
+          DEPLOY_INFO=$(ssh -p 2222 root@cloud.nugabox.com "\
             cd /usr/src/node-api && \
             echo '배포 완료 시간: ' && date && \
             echo '현재 Git 커밋: ' && git rev-parse HEAD && \
-            echo 'PM2 프로세스 상태: ' && pm2 list"
+            echo 'PM2 프로세스 상태: ' && pm2 list")
+          echo "deploy_info<<EOF" >> $GITHUB_ENV
+          echo "$DEPLOY_INFO" >> $GITHUB_ENV
+          echo "EOF" >> $GITHUB_ENV
+
+      - name: Send Telegram Success Notification
+        if: success()
+        uses: appleboy/telegram-action@master
+        with:
+          to: "7758712361"
+          token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          format: markdown
+          message: |
+            ✅ *배포 성공*
+
+            📍 *저장소*: ${{ github.repository }}
+            🔄 *브랜치*: ${{ github.ref_name }}
+            👨‍💻 *커밋 해시*: `${{ github.sha }}`
+
+            📊 *배포 정보*:
+            ```
+            ${{ env.deploy_info }}
+            ```
+
+      - name: Send Telegram Failure Notification
+        if: failure()
+        uses: appleboy/telegram-action@master
+        with:
+          to: "7758712361"
+          token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          format: markdown
+          message: |
+            ❌ *배포 실패*
+
+            📍 *저장소*: ${{ github.repository }}
+            🔄 *브랜치*: ${{ github.ref_name }}
+            👨‍💻 *커밋 해시*: `${{ github.sha }}`
