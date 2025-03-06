@@ -19,11 +19,16 @@ jobs:
           mkdir -p ~/.ssh
           ssh-keyscan -H -p 2222 cloud.nugabox.com >> ~/.ssh/known_hosts
 
+      - name: Test SSH Connection
+        run: |
+          ssh -v -o StrictHostKeyChecking=no -p 2222 root@cloud.nugabox.com "echo 'Test connection'"
+
       - name: Deploy to Container
         run: |
-          ssh -o StrictHostKeyChecking=accept-new -p 2222 root@cloud.nugabox.com "\
+          ssh -o StrictHostKeyChecking=no -p 2222 root@cloud.nugabox.com "\
             cd /usr/src/app && \
             git fetch origin main && \
+            git checkout -f main && \
             git reset --hard origin/main && \
             npm install && \
             pm2 reload all --update-env || pm2 start app.js --name node-api"

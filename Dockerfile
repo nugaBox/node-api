@@ -30,7 +30,11 @@ RUN npm install
 # 앱 소스 복사 및 Git 초기화
 COPY app .
 RUN git init && \
-    git remote add origin https://github.com/nugaBox/node-api.git
+    git remote add origin https://github.com/nugaBox/node-api.git && \
+    git config core.sparseCheckout true && \
+    echo "app/*" > .git/info/sparse-checkout && \
+    git fetch --depth 1 origin main && \
+    git checkout -f main
 
 # SSH 및 앱 포트 노출
 EXPOSE 2222 3000
