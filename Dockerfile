@@ -12,17 +12,13 @@ RUN sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/
     && sed -i 's/#StrictModes yes/StrictModes no/' /etc/ssh/sshd_config \
     && echo "LogLevel DEBUG3" >> /etc/ssh/sshd_config
 
-# 작업 디렉토리 설정 및 Git 저장소 클론
-WORKDIR /usr/src
-RUN git clone https://github.com/nugaBox/node-api.git app && \
-    cd app && \
-    git config --global core.fileMode false
+# 작업 디렉토리 설정
+WORKDIR /usr/src/app
 
 # SSH 디렉토리 생성
 RUN mkdir -p /root/.ssh && \
-    chmod 700 /root/.ssh
-
-WORKDIR /usr/src/app
+    chmod 700 /root/.ssh && \
+    git config --global core.fileMode false
 
 # PM2 전역 설치
 RUN npm install -g pm2
@@ -31,8 +27,10 @@ RUN npm install -g pm2
 COPY app/package*.json ./
 RUN npm install
 
-# 앱 소스 복사
+# 앱 소스 복사 및 Git 초기화
 COPY app .
+RUN git init && \
+    git remote add origin https://github.com/nugaBox/node-api.git
 
 # SSH 및 앱 포트 노출
 EXPOSE 2222 3000
