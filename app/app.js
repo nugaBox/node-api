@@ -78,5 +78,5 @@ app.use((err, req, res, next) => {
 
 // 서버 시작
 app.listen(port, () => {
-    logger.info(`서버가 포트 ${port}에서 실행중입니다.`);
+    logger.info(`서버가 포트 ${port}에서 실행중입니다!`);
 }); 
