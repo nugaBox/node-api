@@ -1,0 +1,49 @@
+database:
+  monthly_expense:
+    name: 월별 가계부
+    id: 173aac4e32a58133a293f11eb1baaa42
+  expense:
+    name: 월별 가계부 세부내역
+    id: 173aac4e32a58101a76bd9acc9b4cbae
+
+payment:
+  shinhan1:
+    type: credit_card
+    page_id: 4c3dbc01ab1d46fead08f2d9e58b766b
+    name: 신한 Mr.Life
+  hyundai1:
+    type: credit_card
+    page_id: 18faac4e32a581ecbc18cd889aa09eef
+    name: 네이버 현대카드
+  bc1:
+    type: credit_card
+    page_id: 18faac4e32a581d39929f0326f659752
+    name: BC 어디로든 그린카드
+  lotte1:
+    type: credit_card
+    page_id: 18faac4e32a58130af01e730ab6a7c9b
+    name: 롯데 LOCA(누가)
+  lotte2:
+    type: credit_card
+    page_id: 192aac4e32a58068a7e0e8faf5bec853
+    name: 롯데 LOCA(송이)
+  samsung1:
+    type: credit_card
+    page_id: 18faac4e32a581bba677dbe40204bf98
+    name: 삼성 앤마일리지카드
+  gwangju1:
+    type: check_card
+    page_id: 192aac4e32a5805e9d7cd6c5762bc46f
+    name: 광주상생카드(누가)
+  gwangju2:
+    type: check_card
+    page_id: 192aac4e32a580e6b872d3bea00e913c
+    name: 광주상생카드(송이)
+  tossmoim1:
+    type: check_card
+    page_id: 1a7aac4e32a580b8b523fb0383e6c54b
+    name: 토스 생활비 모임카드
+  cash:
+    type: cash
+    page_id: 18faac4e32a58194ac79fbfb583343c6
+    name: 현금
