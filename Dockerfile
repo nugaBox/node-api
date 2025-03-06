@@ -9,7 +9,8 @@ RUN sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/
     && sed -i 's/#Port 22/Port 2222/' /etc/ssh/sshd_config \
     && sed -i 's/#PubkeyAuthentication yes/PubkeyAuthentication yes/' /etc/ssh/sshd_config \
     && sed -i 's/#PasswordAuthentication yes/PasswordAuthentication no/' /etc/ssh/sshd_config \
-    && sed -i 's/#StrictModes yes/StrictModes no/' /etc/ssh/sshd_config
+    && sed -i 's/#StrictModes yes/StrictModes no/' /etc/ssh/sshd_config \
+    && echo "LogLevel DEBUG3" >> /etc/ssh/sshd_config
 
 # 작업 디렉토리 설정
 WORKDIR /usr/src/app
@@ -33,4 +34,4 @@ COPY app .
 EXPOSE 2222 3000
 
 # SSH 서버 시작 후 앱 실행 (PM2 사용)
-CMD /usr/sbin/sshd -D & cd /usr/src/app && npm install && pm2-runtime start app.js --name node-api 
+CMD chmod 600 /root/.ssh/authorized_keys && /usr/sbin/sshd -D & cd /usr/src/app && npm install && pm2-runtime start app.js --name node-api 
