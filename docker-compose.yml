@@ -1,9 +1,9 @@
 version: "3.8"
 
 services:
-  node-api:
+  app:
     build: .
-    container_name: node-api
+    container_name: app
     restart: unless-stopped
     ports:
       - "3000:3000"
