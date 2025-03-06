@@ -172,6 +172,9 @@ ssh -i .ssh/deploy_key -p 2222 root@localhost
 
 # 원격 서버의 컨테이너로 연결 테스트
 ssh -i .ssh/deploy_key -p 2222 root@your-domain.com
+
+# ED25519 키만 사용하도록 강제 (디버깅)
+ssh -v -i .ssh/deploy_key -o IdentitiesOnly=yes -o PreferredAuthentications=publickey -p 2222 root@your-domain.com
 ```
 
 ### Docker Compose 실행
