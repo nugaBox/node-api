@@ -26,10 +26,11 @@ jobs:
       - name: Deploy to Container
         run: |
           ssh -o StrictHostKeyChecking=no -p 2222 root@cloud.nugabox.com "\
-            cd /usr/src/app && \
+            cd /usr/src/node-api && \
             git fetch origin main && \
             git checkout -f main && \
             git reset --hard origin/main && \
+            cd app && \
             npm install && \
             pm2 reload all --update-env || pm2 start app.js --name node-api"
 
@@ -37,7 +38,7 @@ jobs:
         if: success()
         run: |
           ssh -p 2222 root@cloud.nugabox.com "\
-            cd /usr/src/app && \
+            cd /usr/src/node-api && \
             echo '배포 완료 시간: ' && date && \
             echo '현재 Git 커밋: ' && git rev-parse HEAD && \
             echo 'PM2 프로세스 상태: ' && pm2 list"

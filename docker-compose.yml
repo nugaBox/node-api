@@ -8,8 +8,8 @@ services:
       - "3000:3000"
       - "2222:2222"
     volumes:
-      - ./app:/usr/src/app
-      - /usr/src/app/node_modules
+      - ./app:/usr/src/node-api/app
+      - /usr/src/node-api/app/node_modules
       - ./.ssh/authorized_keys:/root/.ssh/authorized_keys:ro
     environment:
       - NODE_ENV=production

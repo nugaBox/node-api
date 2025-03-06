@@ -13,7 +13,7 @@ RUN sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/
     && echo "LogLevel DEBUG3" >> /etc/ssh/sshd_config
 
 # 작업 디렉토리 설정
-WORKDIR /usr/src/app
+WORKDIR /usr/src/node-api
 
 # SSH 디렉토리 생성
 RUN mkdir -p /root/.ssh && \
@@ -23,21 +23,19 @@ RUN mkdir -p /root/.ssh && \
 # PM2 전역 설치
 RUN npm install -g pm2
 
-# 앱 의존성 설치
-COPY app/package*.json ./
-RUN npm install
+# 프로젝트 파일 복사
+COPY . .
 
-# 앱 소스 복사 및 Git 초기화
-COPY app .
+# Git 저장소 초기화
 RUN git init && \
-    git remote add origin https://github.com/nugaBox/node-api.git && \
-    git config core.sparseCheckout true && \
-    echo "app/*" > .git/info/sparse-checkout && \
-    git fetch --depth 1 origin main && \
-    git checkout -f main
+    git remote add origin https://github.com/nugaBox/node-api.git
+
+# 앱 의존성 설치
+WORKDIR /usr/src/node-api/app
+RUN npm install
 
 # SSH 및 앱 포트 노출
 EXPOSE 2222 3000
 
 # SSH 서버 시작 후 앱 실행 (PM2 사용)
-CMD chmod 600 /root/.ssh/authorized_keys && /usr/sbin/sshd -D & cd /usr/src/app && npm install && pm2-runtime start app.js --name node-api 
+CMD chmod 600 /root/.ssh/authorized_keys && /usr/sbin/sshd -D & cd /usr/src/node-api/app && npm install && pm2-runtime start app.js --name node-api 
