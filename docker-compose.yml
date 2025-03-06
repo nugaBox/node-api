@@ -22,5 +22,5 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
-    command: sh -c "/usr/sbin/sshd && cd /usr/src/app && npm install && pm2-runtime start app.js --name node-api"
+    command: sh -c "/usr/sbin/sshd && cd /usr/src/node-api/app && npm install && pm2-runtime start app.js --name node-api"
 
