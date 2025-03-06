@@ -7,19 +7,21 @@ services:
     restart: unless-stopped
     ports:
       - "${PORT:-3000}:3000"
+      - "2222:2222"  # SSH 포트
     volumes:
       - ./app:/usr/src/app
       - /usr/src/app/node_modules
+      - ~/.ssh/authorized_keys:/root/.ssh/authorized_keys:ro  # SSH 키 마운트
     environment:
       - NODE_ENV=production
       - TZ=Asia/Seoul
     env_file:
       - app/.env
-    command: sh -c "cd /usr/src/app && npm install && node app.js"
     mem_limit: 1g
     logging:
       driver: "json-file"
       options:
         max-size: "10m"
         max-file: "3"
+    command: sh -c "/usr/sbin/sshd && cd /usr/src/app && npm install && pm2-runtime start app.js --name node-api"
 

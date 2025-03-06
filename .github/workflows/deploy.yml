@@ -1,0 +1,37 @@
+name: Deploy to Docker Container
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: SSH Setup
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.DEPLOY_SSH_KEY }}
+
+      - name: Add Known Hosts
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -p 2222 cloud.nugabox.com >> ~/.ssh/known_hosts
+
+      - name: Deploy to Container
+        run: |
+          ssh -o StrictHostKeyChecking=accept-new -p 2222 root@cloud.nugabox.com "\
+            cd /usr/src/app && \
+            git fetch origin main && \
+            git reset --hard origin/main && \
+            npm install && \
+            pm2 reload all --update-env || pm2 start app.js --name node-api"
+
+      - name: Verify Deployment
+        run: |
+          ssh -p 2222 root@cloud.nugabox.com "\
+            cd /usr/src/app && \
+            echo '배포 완료 시간: ' && date && \
+            echo '현재 Git 커밋: ' && git rev-parse HEAD && \
+            echo 'PM2 프로세스 상태: ' && pm2 list"
