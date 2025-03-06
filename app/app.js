@@ -1,4 +1,4 @@
-require('dotenv').config();
+require('dotenv').config({ override: true });
 const express = require('express');
 const logger = require('./src/logger');
 const { router: notionRouter } = require('./src/notion');
@@ -49,7 +49,6 @@ app.use(apiLogger);
 const authenticateToken = (req, res, next) => {
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1];
-
     if (!token) {
         return res.status(401).json({ 
             success: false, 
@@ -57,7 +56,7 @@ const authenticateToken = (req, res, next) => {
         });
     }
 
-    if (token !== process.env.API_KEY) {
+    if (token.trim() !== process.env.API_KEY.trim()) {
         return res.status(403).json({ 
             success: false, 
             error: '유효하지 않은 토큰입니다.' 
