@@ -1,4 +1,5 @@
 .env
+.ssh/
 app.log
 app/src/financial.yml
 app/node_modules/*

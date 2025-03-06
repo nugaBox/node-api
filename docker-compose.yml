@@ -6,12 +6,12 @@ services:
     container_name: node-api
     restart: unless-stopped
     ports:
-      - "${PORT:-3000}:3000"
-      - "2222:2222"  # SSH 포트
+      - "3000:3000"
+      - "2222:2222"
     volumes:
       - ./app:/usr/src/app
       - /usr/src/app/node_modules
-      - ~/.ssh/authorized_keys:/root/.ssh/authorized_keys:ro  # SSH 키 마운트
+      - ./.ssh/authorized_keys:/root/.ssh/authorized_keys:ro
     environment:
       - NODE_ENV=production
       - TZ=Asia/Seoul
