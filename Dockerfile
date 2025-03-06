@@ -15,10 +15,11 @@ RUN sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/
 # 작업 디렉토리 설정
 WORKDIR /usr/src/node-api
 
-# SSH 디렉토리 생성
+# SSH 디렉토리 생성 및 Git 설정
 RUN mkdir -p /root/.ssh && \
     chmod 700 /root/.ssh && \
-    git config --global core.fileMode false
+    git config --global core.fileMode false && \
+    git config --global init.defaultBranch main
 
 # PM2 전역 설치
 RUN npm install -g pm2
