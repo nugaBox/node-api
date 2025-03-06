@@ -133,3 +133,56 @@ node app/app.js
 - 모든 API 요청과 응답이 로그 파일에 기록됩니다
 - 로그 파일: `{LOG_DIR}/{LOG_FILENAME}`
 - 로그 레벨: LOG_LEVEL 환경변수로 설정 (debug, info, error)
+
+## 배포
+
+### Docker Compose 실행
+
+```bash
+# Docker Compose 실행
+docker-compose up -d
+```
+
+#### docker-compose.yml 예제
+
+```yaml
+version: "3.8"
+services:
+  node-api:
+    build: .
+    container_name: node-api
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./app:/usr/src/app
+      - /usr/src/app/node_modules
+    environment:
+      - NODE_ENV=production
+    command: sh -c "npm install && node app.js"
+```
+
+#### Dockerfile 예제
+
+```dockerfile
+FROM node:18-alpine
+
+WORKDIR /usr/src/app
+
+COPY app/package*.json ./
+
+RUN npm install
+
+COPY app .
+
+EXPOSE 3000
+
+CMD ["sh", "-c", "npm install && node app.js"]
+```
+
+이 설정의 주요 특징:
+
+- 컨테이너 시작 시 항상 `npm install` 실행
+- 볼륨 마운트로 로컬 소스 코드 변경 실시간 반영
+- `node_modules`는 컨테이너 내부에서 관리
+- 환경 변수와 포트 설정 가능

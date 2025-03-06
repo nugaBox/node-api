@@ -1,20 +1,25 @@
-version: '3.8'
+version: "3.8"
 
 services:
-  app:
-    build: 
-      context: ./app
-      dockerfile: Dockerfile
+  node-api:
+    build: .
     container_name: node-api
+    restart: unless-stopped
     ports:
-      - "3000:3000"
+      - "${PORT:-3000}:3000"
     volumes:
       - ./app:/usr/src/app
-      - ./app/node_modules:/usr/src/app/node_modules
+      - /usr/src/app/node_modules
     environment:
       - NODE_ENV=production
+      - TZ=Asia/Seoul
     env_file:
       - app/.env
-    restart: unless-stopped 
+    command: sh -c "cd /usr/src/app && npm install && node app.js"
     mem_limit: 1g
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
