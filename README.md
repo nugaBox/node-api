@@ -6,11 +6,16 @@
 
 - Notion 페이지 속성 조회 및 업데이트
 - 카드별 금월지출 조회 및 업데이트
-- 카드별 전월실적 조회
-- 카드별 실적 충족 여부 확인
+- 카드별 전월실적 조회 및 충족 여부 확인
 - 카드별 남은 실적 금액 조회
+- 전체 카드 현황 조회 (실적 충족 상태 및 총 지출액)
+- 카드 사용내역 추가 (자동 금월지출 업데이트)
+- 월별 가계부 페이지 존재 여부 확인
+- 이번 달 가계부 페이지 정보 조회
 
-## 환경 변수 설정 (.env)
+## 설정 파일
+
+### 환경 변수 설정 (.env)
 
 ```plaintext
 # 서버 설정
@@ -19,15 +24,38 @@ LOG_DIR=logs
 LOG_FILENAME=app.log
 LOG_LEVEL=debug  # debug, info, error
 API_KEY=your_api_key_here
+ALLOWED_ORIGINS=https://your-domain.com
 
 # notion
 NOTION_API_KEY=your_notion_api_key
+```
 
-# financial
-CARD_SHINHAN=notion_page_id
-CARD_HYUNDAI=notion_page_id
-CARD_BC=notion_page_id
-CARD_LOTTE=notion_page_id
+### Financial 설정 (app/src/financial.yml)
+
+`financial.js`에서 이용하는 설정 정보를 관리하는 YAML 파일입니다.
+
+```yaml
+database:
+  monthly_expense:
+    name: 월별 가계부
+    id: your_database_id
+  expense:
+    name: 월별 가계부 세부내역
+    id: your_database_id
+
+payment:
+  card1: # 결제수단 ID (소문자)
+    type: credit_card # 결제수단 유형 : credit_card(신용카드), check_card(체크카드), cash(현금)
+    page_id: notion_page_id
+    name: 신용카드1
+  card2:
+    type: check_card
+    page_id: notion_page_id
+    name: 체크카드1
+  cash:
+    type: cash
+    page_id: notion_page_id
+    name: 현금
 ```
 
 ## 설치 및 실행
@@ -44,8 +72,12 @@ npm install
 cp .env.example .env
 # .env 파일 수정
 
+# financial.yml 설정
+cp app/src/financial.yml.example app/src/financial.yml
+# financial.yml 파일 수정
+
 # 서버 실행
-node app.js
+node app/app.js
 ```
 
 ## API 엔드포인트
@@ -65,13 +97,18 @@ node app.js
 
 ### Financial API
 
-| 메소드 | 엔드포인트                          | 설명                         | 요청 본문                                                      | 응답 형식  |
-| ------ | ----------------------------------- | ---------------------------- | -------------------------------------------------------------- | ---------- |
-| POST   | `/financial/get-expense`            | 카드 금월지출 조회           | `{ "cardId": "...", "format": "json\|plain" }`                 | JSON/Plain |
-| POST   | `/financial/update-expense`         | 카드 금월지출 업데이트       | `{ "cardId": "...", "value": "...", "format": "json\|plain" }` | JSON/Plain |
-| POST   | `/financial/get-last-performance`   | 카드 전월실적 조회           | `{ "cardId": "...", "format": "json\|plain" }`                 | JSON/Plain |
-| POST   | `/financial/check-last-performance` | 카드 전월실적 충족 확인      | `{ "cardId": "...", "format": "json\|plain" }`                 | JSON/Plain |
-| POST   | `/financial/get-month-remaining`    | 카드 전월실적 남은 금액 조회 | `{ "cardId": "...", "format": "json\|plain" }`                 | JSON/Plain |
+| 메소드 | 엔드포인트                          | 설명                         | 요청 본문                                                                                                                                          | 응답 형식  |
+| ------ | ----------------------------------- | ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
+| POST   | `/financial/get-expense`            | 카드 금월지출 조회           | `{ "cardId": "...", "format": "json\|plain" }`                                                                                                     | JSON/Plain |
+| POST   | `/financial/update-expense`         | 카드 금월지출 업데이트       | `{ "cardId": "...", "value": "...", "format": "json\|plain" }`                                                                                     | JSON/Plain |
+| POST   | `/financial/get-last-performance`   | 카드 전월실적 조회           | `{ "cardId": "...", "format": "json\|plain" }`                                                                                                     | JSON/Plain |
+| POST   | `/financial/check-last-performance` | 카드 전월실적 충족 확인      | `{ "cardId": "...", "format": "json\|plain" }`                                                                                                     | JSON/Plain |
+| POST   | `/financial/get-month-remaining`    | 카드 전월실적 남은 금액 조회 | `{ "cardId": "...", "format": "json\|plain" }`                                                                                                     | JSON/Plain |
+| POST   | `/financial/get-card-status`        | 카드 월별 현황 조회          | `{ "cardId": "...", "format": "json\|plain" }`                                                                                                     | JSON/Plain |
+| POST   | `/financial/get-all-card-status`    | 전체 카드 현황 조회          | `{ "format": "json\|plain" }`                                                                                                                      | JSON/Plain |
+| POST   | `/financial/add-expense`            | 카드 사용내역 추가           | `{ "지출명": "...", "카테고리명": "...", "금액": "...", "누구": "...", "연월": "YYYY_MM", "카드": "...", "비고": "...", "format": "json\|plain" }` | JSON/Plain |
+| POST   | `/financial/check-month-page`       | 월별 페이지 존재 여부 확인   | `{ "yearmonth": "YYYY_MM", "format": "json\|plain" }`                                                                                              | JSON/Plain |
+| POST   | `/financial/get-current-month-page` | 이번 달 페이지 정보 조회     | `{ "format": "json\|plain" }`                                                                                                                      | JSON/Plain |
 
 ### 응답 형식
 
