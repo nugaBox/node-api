@@ -2,11 +2,9 @@ const fs = require('fs');
 const path = require('path');
 require('dotenv').config();
 
-// 기본 로그 디렉토리 설정
-const logDir = process.env.LOG_DIR || 'logs';
-// 기본 로그 파일명 설정
+// app/logs 디렉토리로 로그 경로 설정
+const logDir = path.resolve(__dirname, '..', 'logs');
 const logFilename = process.env.LOG_FILENAME || 'app.log';
-// 로그 레벨 설정 (debug, info, error)
 const logLevel = process.env.LOG_LEVEL || 'info';
 
 // 로그 레벨 우선순위
@@ -18,12 +16,13 @@ const LOG_LEVELS = {
 
 // 로그 디렉토리가 없으면 생성
 if (!fs.existsSync(logDir)) {
-    fs.mkdirSync(logDir);
+    fs.mkdirSync(logDir, { recursive: true });
 }
 
 function formatLogMessage(level, message) {
     const timestamp = new Date().toISOString();
-    return `[${timestamp}] ${level}: ${message}\n`;
+    const formattedMessage = typeof message === 'object' ? JSON.stringify(message) : message;
+    return `[${timestamp}] ${level}: ${formattedMessage}`;
 }
 
 function shouldLog(messageLevel) {
@@ -34,45 +33,39 @@ const logger = {
     info: (message) => {
         if (shouldLog('info')) {
             const logMessage = formatLogMessage('INFO', message);
-            fs.appendFileSync(path.join(logDir, logFilename), logMessage);
-            console.log(message);
+            fs.appendFileSync(path.join(logDir, logFilename), logMessage + '\n');
+            console.log(logMessage);
         }
     },
     error: (message) => {
         if (shouldLog('error')) {
             const logMessage = formatLogMessage('ERROR', message);
-            fs.appendFileSync(path.join(logDir, logFilename), logMessage);
-            console.error(message);
+            fs.appendFileSync(path.join(logDir, logFilename), logMessage + '\n');
+            console.error(logMessage);
         }
     },
     debug: (message) => {
         if (shouldLog('debug')) {
             const logMessage = formatLogMessage('DEBUG', message);
-            fs.appendFileSync(path.join(logDir, logFilename), logMessage);
-            console.debug(message);
+            fs.appendFileSync(path.join(logDir, logFilename), logMessage + '\n');
+            console.debug(logMessage);
         }
     }
 };
 
 // API 요청/응답 로깅 미들웨어
 const apiLogger = (req, res, next) => {
-    // 원본 json 메소드 저장
     const originalJson = res.json;
     
-    // 요청 로깅
-    logger.debug('--- API 요청 시작 ---');
-    logger.info(`Request: ${req.method} ${req.originalUrl}`);
+    const requestLog = `${req.method} ${req.originalUrl}`;
+    logger.info(requestLog);
+    
     if (Object.keys(req.body).length > 0) {
-        logger.info(`Request Body: ${JSON.stringify(req.body)}`);
-    }
-    if (Object.keys(req.query).length > 0) {
-        logger.info(`Request Query: ${JSON.stringify(req.query)}`);
+        logger.debug(`Request Body: ${JSON.stringify(req.body)}`);
     }
 
-    // json 메소드 오버라이드하여 응답 로깅
     res.json = function(data) {
-        logger.info(`Response: ${JSON.stringify(data)}`);
-        logger.debug('--- API 요청 종료 ---');
+        logger.debug(`Response: ${JSON.stringify(data)}`);
         return originalJson.call(this, data);
     };
 
