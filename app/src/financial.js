@@ -676,16 +676,16 @@ const financialRoutes = {
                 }, format);
             } else {
                 const pageId = response.results[0].id;
-                const pageUrl = `https://www.notion.so/codenuga/${year}-${parseInt(month)}-${pageId}`;
+                const cleanedPageId = pageId.replace('-', '');
+                const pageUrl = `https://www.notion.so/codenuga/${year}-${parseInt(month)}-${cleanedPageId}`;
                 
                 if (format === 'plain') {
                     formatResponse(res, { 
-                        text: `${pageId}\n${pageUrl}` 
+                        text: `${pageUrl}` 
                     }, format);
                 } else {
                     formatResponse(res, {
                         success: true,
-                        pageId,
                         pageUrl,
                         monthTitle,
                         yearmonth
