@@ -42,6 +42,21 @@ function koreanAmountToNumber(koreanAmount) {
     }
 }
 
+// "yyyy. MM. dd." 형태의 문자열을 ISO 날짜(YYYY-MM-DD)로 변환
+function parseKoreanDateDots(dateString) {
+    try {
+        if (!dateString || typeof dateString !== 'string') return null;
+        const match = dateString.trim().match(/^(\d{4})\.\s*(\d{1,2})\.\s*(\d{1,2})\.?$/);
+        if (!match) return null;
+        const year = Number(match[1]);
+        const month = String(Number(match[2])).padStart(2, '0');
+        const day = String(Number(match[3])).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    } catch (_) {
+        return null;
+    }
+}
+
 // 실적 충족 여부 확인 함수
 async function checkExpenseStatus(cardAlias, pageId) {
     try {
@@ -526,6 +541,7 @@ const financialRoutes = {
                 연월, 
                 카드, 
                 비고,
+                언제,
                 format = 'json' 
             } = req.body;
 
@@ -538,6 +554,8 @@ const financialRoutes = {
             const monthRelationId = await getMonthRelationId(연월);
             const cardRelationId = getPageIdByCard(카드);
             const parsedAmount = parseInt(금액);
+
+            const transactionDateISO = parseKoreanDateDots(언제);
 
             const response = await notionClient.pages.create({
                 parent: {
@@ -559,6 +577,9 @@ const financialRoutes = {
                     "누구": {
                         select: { name: 누구 }
                     },
+                    "거래일자": transactionDateISO ? {
+                        date: { start: transactionDateISO }
+                    } : undefined,
                     "월별 통계 지출 relation": {
                         relation: [{ id: monthRelationId }]
                     },
