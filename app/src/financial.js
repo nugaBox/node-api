@@ -542,6 +542,7 @@ const financialRoutes = {
                 카드, 
                 비고,
                 언제,
+                거래처,
                 format = 'json' 
             } = req.body;
 
@@ -577,6 +578,9 @@ const financialRoutes = {
                     "누구": {
                         select: { name: 누구 }
                     },
+                    "거래처": 거래처 ? {
+                        rich_text: [{ text: { content: 거래처 } }]
+                    } : undefined,
                     "거래일자": transactionDateISO ? {
                         date: { start: transactionDateISO }
                     } : undefined,
